@@ -41,7 +41,7 @@ class SetupQaEnvironment extends Command
         }
 
         $this->info('Installing Composer dev dependencies...');
-        $this->runCommand('composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/laravel-insights');
+        $this->runShellCommand('composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/laravel-insights');
 
         $this->info("Installing frontend dev dependencies using {$packageManager}...");
 
@@ -62,7 +62,7 @@ class SetupQaEnvironment extends Command
         }
 
         $packagesString = implode(' ', $frontendBasePackages);
-        $this->runCommand("{$packageManager} install --save-dev {$packagesString}");
+        $this->runShellCommand("{$packageManager} install --save-dev {$packagesString}");
 
         $this->info('Updating composer.json scripts...');
         $this->updateJsonScripts(base_path('composer.json'), [
@@ -99,7 +99,7 @@ class SetupQaEnvironment extends Command
 
         if (!file_exists(base_path('tsconfig.json'))) {
             $this->info('Generating tsconfig.json...');
-            $this->runCommand('npx tsc --init --rootDir resources/js --outDir resources/js/dist --allowJs --esModuleInterop --module ESNext --target ESNext --moduleResolution Node --skipLibCheck');
+            $this->runShellCommand('npx tsc --init --rootDir resources/js --outDir resources/js/dist --allowJs --esModuleInterop --module ESNext --target ESNext --moduleResolution Node --skipLibCheck');
         }
 
         $this->createFileIfMissing('vite.config.ts', file_get_contents($stubsPath . 'vite.config.ts.stub'));
@@ -111,7 +111,7 @@ class SetupQaEnvironment extends Command
         }
 
         $this->info('Running initial frontend build...');
-        $this->runCommand("{$packageManager} run build");
+        $this->runShellCommand("{$packageManager} run build");
 
         $this->info('QA environment is fully configured.');
         $this->line('Run "composer check-all" to verify full quality checks.');
@@ -148,7 +148,7 @@ class SetupQaEnvironment extends Command
         file_put_contents($filePath, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
-    protected function runCommand(string $command): void
+    protected function runShellCommand(string $command): void
     {
         $prefix = env('SAIL') ? '' : './vendor/bin/sail ';
         shell_exec($prefix . $command);
