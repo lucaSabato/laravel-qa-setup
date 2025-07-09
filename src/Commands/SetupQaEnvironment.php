@@ -18,8 +18,6 @@ class SetupQaEnvironment extends Command
             return self::FAILURE;
         }
 
-        // Removed jq check since we no longer need jq
-
         $packageManager = file_exists(base_path('pnpm-lock.yaml')) ? 'pnpm' : 'npm';
         $this->info("Detected package manager: {$packageManager}");
 
@@ -43,7 +41,7 @@ class SetupQaEnvironment extends Command
         }
 
         $this->info('Installing Composer dev dependencies...');
-        shell_exec('./vendor/bin/sail composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/laravel-insights');
+        $this->runCommand('composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/laravel-insights');
 
         $this->info("Installing frontend dev dependencies using {$packageManager}...");
 
@@ -64,10 +62,8 @@ class SetupQaEnvironment extends Command
         }
 
         $packagesString = implode(' ', $frontendBasePackages);
+        $this->runCommand("{$packageManager} install --save-dev {$packagesString}");
 
-        shell_exec("./vendor/bin/sail {$packageManager} install --save-dev {$packagesString}");
-
-        // Update composer.json scripts in PHP
         $this->info('Updating composer.json scripts...');
         $this->updateJsonScripts(base_path('composer.json'), [
             'format' => 'vendor/bin/pint',
@@ -86,7 +82,6 @@ class SetupQaEnvironment extends Command
             ],
         ]);
 
-        // Update package.json scripts in PHP
         $this->info('Updating package.json scripts...');
         $this->updateJsonScripts(base_path('package.json'), [
             'lint' => 'eslint resources/js',
@@ -97,7 +92,6 @@ class SetupQaEnvironment extends Command
             'test:watch' => 'vitest',
         ]);
 
-        // Generate config files from stubs
         $stubsPath = __DIR__ . '/../../stubs/';
 
         $this->createFileIfMissing('.eslintrc.cjs', file_get_contents($stubsPath . 'eslintrc.cjs.stub'));
@@ -105,7 +99,7 @@ class SetupQaEnvironment extends Command
 
         if (!file_exists(base_path('tsconfig.json'))) {
             $this->info('Generating tsconfig.json...');
-            shell_exec('./vendor/bin/sail npx tsc --init --rootDir resources/js --outDir resources/js/dist --allowJs --esModuleInterop --module ESNext --target ESNext --moduleResolution Node --skipLibCheck');
+            $this->runCommand('npx tsc --init --rootDir resources/js --outDir resources/js/dist --allowJs --esModuleInterop --module ESNext --target ESNext --moduleResolution Node --skipLibCheck');
         }
 
         $this->createFileIfMissing('vite.config.ts', file_get_contents($stubsPath . 'vite.config.ts.stub'));
@@ -117,7 +111,7 @@ class SetupQaEnvironment extends Command
         }
 
         $this->info('Running initial frontend build...');
-        shell_exec("./vendor/bin/sail {$packageManager} run build");
+        $this->runCommand("{$packageManager} run build");
 
         $this->info('QA environment is fully configured.');
         $this->line('Run "composer check-all" to verify full quality checks.');
@@ -149,9 +143,14 @@ class SetupQaEnvironment extends Command
             $json['scripts'] = [];
         }
 
-        // Merge new scripts, overwrite existing if conflicts
         $json['scripts'] = array_merge($json['scripts'], $scriptsToAdd);
 
         file_put_contents($filePath, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    protected function runCommand(string $command): void
+    {
+        $prefix = env('SAIL') ? '' : './vendor/bin/sail ';
+        shell_exec($prefix . $command);
     }
 }
