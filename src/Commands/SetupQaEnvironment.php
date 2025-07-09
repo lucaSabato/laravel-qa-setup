@@ -25,6 +25,10 @@ class SetupQaEnvironment extends Command
         $packageJsonPath = base_path('package.json');
         if (file_exists($packageJsonPath)) {
             $packageJson = json_decode(file_get_contents($packageJsonPath), true);
+            if (!is_array($packageJson)) {
+                $this->error("Invalid JSON in package.json.");
+                return self::FAILURE;
+            }
             $deps = $packageJson['dependencies'] ?? [];
             $devDeps = $packageJson['devDependencies'] ?? [];
             if (
@@ -41,7 +45,7 @@ class SetupQaEnvironment extends Command
         }
 
         $this->info('Installing Composer dev dependencies...');
-        $this->runShellCommand('composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/laravel-insights');
+        $this->runShellCommand('composer require --dev laravel/pint nunomaduro/larastan phpunit/phpunit enlightn/enlightn');
 
         $this->info("Installing frontend dev dependencies using {$packageManager}...");
 
@@ -61,7 +65,7 @@ class SetupQaEnvironment extends Command
             $frontendBasePackages = array_filter($frontendBasePackages, fn($pkg) => !in_array($pkg, ['eslint-plugin-vue', 'vue-tsc', '@vue/test-utils', '@vitejs/plugin-vue']));
         }
 
-        $packagesString = implode(' ', $frontendBasePackages);
+        $packagesString = implode(' ', array_map('escapeshellarg', $frontendBasePackages));
         $this->runShellCommand("{$packageManager} install --save-dev {$packagesString}");
 
         $this->info('Updating composer.json scripts...');
@@ -139,6 +143,11 @@ class SetupQaEnvironment extends Command
 
         $json = json_decode(file_get_contents($filePath), true);
 
+        if (!is_array($json)) {
+            $this->warn("Invalid JSON in {$filePath}, skipping.");
+            return;
+        }
+
         if (!isset($json['scripts']) || !is_array($json['scripts'])) {
             $json['scripts'] = [];
         }
@@ -150,7 +159,7 @@ class SetupQaEnvironment extends Command
 
     protected function runShellCommand(string $command): void
     {
-        $prefix = env('SAIL') ? '' : './vendor/bin/sail ';
+        $prefix = getenv('SAIL') === '1' ? '' : './vendor/bin/sail ';
         shell_exec($prefix . $command);
     }
 }
